@@ -1,0 +1,1 @@
+wartortle.colormode(255)  # Set the color mode to RGB
