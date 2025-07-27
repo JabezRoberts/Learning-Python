@@ -10,6 +10,7 @@ load_dotenv()
 API_KEY = os.getenv("API_KEY")
 APP_ID = os.getenv("APP_ID")
 SHEETY_ENDPOINT = os.getenv("SHEETY_GET_ENDPOINT")
+sheety_api=os.getenv("SHEETY_API")
 
 nutritionix_host_domain = "https://trackapi.nutritionix.com"
 nutritionix_endpoint = "/v2/natural/exercise"
@@ -41,7 +42,6 @@ print(response.status_code)
 print(response.json())
 
 
-sheety_api=os.getenv("SHEETY_API")
 
 SHEETY_HEADERS = {
     "Authorization": f"Bearer {sheety_api}",  # assuming it's a bearer token
