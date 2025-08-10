@@ -1,0 +1,74 @@
+.buttons {
+    text-decoration: none;
+}
+
+.bg-purple-gradient {
+    background: linear-gradient(135deg, #6f42c1, #9b59b6);
+    color: #fff; /* white icon color */
+}
+
+.btn-purple-gradient {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #6f42c1, #9b59b6);
+    color: #fff;
+    border: none;
+}
+
+.btn-purple-gradient:hover {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #5a32a3, #8e44ad);
+    color: #fff;
+}
+
+.btn-purple-gradient-secondary {
+  position: relative;
+  color: #ffffff;
+  background: transparent;
+  border-radius: 5px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-weight: 500;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.btn-purple-gradient-secondary::before {
+  content: "";
+  position: absolute;
+  top: -2px; left: -2px; right: -2px; bottom: -2px;
+  background: linear-gradient(135deg, #6f42c1, #9b59b6);
+  border-radius: 5px; /* slightly bigger to cover edges */
+  z-index: -1;
+}
+
+.btn-purple-gradient-secondary:hover {
+  color: #fff;
+  background: linear-gradient(135deg, #6f42c1, #9b59b6);
+  border-radius: 5px;
+  transition: background 0.3s, color 0.3s;
+}
+
+.card-purple-overlay {
+  position: relative;
+  overflow: hidden; /* keep overlay inside */
+
+}
+
+.card-purple-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(111, 66, 193, 0.8),
+    rgba(155, 89, 182, 0.6)
+  );
+  pointer-events: none; /* allow clicks through overlay */
+  z-index: 1;
+}
+
+.card-text-foreground {
+  position: relative;
+  z-index: 2;
+}
+
