@@ -27,6 +27,25 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
 Bootstrap5(app)
 
+IMDB_API_READ_ACCESS_TOKEN = os.getenv("API_Read_Access_Token")
+IMDB_API_KEY = os.getenv("API_Key")
+
+MOVIE_DB_SEARCH_URL="https://api.themoviedb.org/3/search/movie"
+GET_MOVIE_DETAILS_URL = "https://api.themoviedb.org/3/movie/{movie_id}"
+MOVIE_DB_IMAGE_URL = "https://image.tmdb.org/t/p/w500"
+
+# params = {
+#     "api_key": IMDB_API_KEY,
+#     "query": movie_title
+# }
+
+
+
+headers = {
+    "accept": "application/json",
+    "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkNjUyMzBiZGE2ZTZiMzkzMTM1MzYwZDFkN2ZjZTNlMyIsIm5iZiI6MTY1NTE0MzcwNC42MjksInN1YiI6IjYyYTc3ZDE4N2UxMmYwMGUyODMxZDk4YyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.c40DHQlFoiAjghh04ERpVHkIP5PildWpc2Ym0cjKMRg"
+}
+
 # CREATE DB
 class Base(DeclarativeBase):
     pass
@@ -68,6 +87,10 @@ class MovieForm(FlaskForm):
     review = StringField("Add Your Review", validators=[DataRequired()])
     update = SubmitField("Update")
 
+# Form to find a movie to add to the database
+class FindMovieForm(FlaskForm):
+    title = StringField("Enter the movie title", validators=[DataRequired()])
+    submit = SubmitField("Add Movie")
 
 new_movie = Movie(    
     title="Phone Booth",
@@ -104,21 +127,37 @@ def home():
     result = db.session.execute(db.select(Movie).order_by(Movie.title))
     all_movies = result.scalars().all() # Get all the movies from the result
     # Render the index.html template with the list of movies
+    
+    # now we rank the movies based on their ratings
+    for i in range(len(all_movies)):
+        all_movies[i].ranking = len(all_movies) - i
+    db.session.commit()
     return render_template("index.html", movies = all_movies)
 
 
 @app.route("/edit", methods=["Get", "POST"])
 def edit():
-    if request.method == "POST":
-        # Get the movie ID from the form data
-        movie_id = request.form["id"]
-        movie_to_update = db.get_or_404(Movie, id=movie_id)
-        
-        # Update the movie's rating with the new value the uer entered in the form
-        movie_to_update.rating = request.form["rating"]
-        db.session.commit()
+    form = MovieForm()
     movie_id = request.args.get("id")
-    movie_selected = db.get_or_404(Movie, id=movie_id)
+    movie = db.get_or_404(Movie, id=movie_id)
+    
+    if form.validate_on_submit():
+        movie.rating = float(form.rating.data)
+        movie.review = form.review.data
+        db.session.commit()
+        return redirect(url_for("home"))
+    return render_template("edit.html", form = form)
+    
+    # if request.method == "POST":
+    #     # Get the movie ID from the form data
+    #     movie_id = request.form["id"]
+    #     movie_to_update = db.get_or_404(Movie, id=movie_id)
+        
+    #     # Update the movie's rating with the new value the uer entered in the form
+    #     movie_to_update.rating = request.form["rating"]
+    #     db.session.commit()
+    # movie_id = request.args.get("id")
+    # movie_selected = db.get_or_404(Movie, id=movie_id)
     
     # # Tutor's solution
     # form = MovieForm()
@@ -148,28 +187,62 @@ def delete():
 # Add a movie
 @app.route("/add", methods=["GET", "POST"])
 def add():
-    if request.method == "POST":
-        # Create a new movie instance from the form data
-        new_movie = Movie(
-            title = request.form["title"],
-            year = request.form["year"],
-            description = request.form["description"],
-            rating = request.form["rating"],
-            ranking = request.form["ranking"],
-            review = request.form["review"],
-            img_url = request.form["img_url"],
-        )
+    # if request.method == "POST":
+    #     # Create a new movie instance from the form data
+    #     new_movie = Movie(
+    #         title = request.form["title"],
+    #         year = request.form["year"],
+    #         description = request.form["description"],
+    #         rating = request.form["rating"],
+    #         ranking = request.form["ranking"],
+    #         review = request.form["review"],
+    #         img_url = request.form["img_url"],
+    #     )
         
         # Add the new movie to the session and commit the changes
+        # db.session.add(new_movie)
+        # db.session.commit()
+        # return redirect(url_for('home'))
+    
+    
+    form = FindMovieForm()
+    
+    if form.validate_on_submit():
+        movie_title = form.title.data
+        response = requests.get(MOVIE_DB_SEARCH_URL, params={
+            "api_key": IMDB_API_KEY,
+            "query": movie_title
+        })
+        data = response.json()["results"]
+        return render_template("select.html", options=data)
+    return render_template("add.html", form=form)
+    # return render_template("add.html")
+
+
+# Find a movie from the IMDB database via API
+def find_movie():
+    movie_api_id = request.args.get("id")
+    if movie_api_id:
+        movie_api_url = f"{GET_MOVIE_DETAILS_URL}/{movie_api_id}"
+        #The language parameter is optional, if you were making the website for a different audience 
+        #e.g. Hindi speakers then you might choose "hi-IN"
+        
+        response = requests.get(movie_api_url, params={
+            "api_key": IMDB_API_KEY,
+            "language": "en-US"
+        })
+        data = response.json()
+        new_movie = Movie(
+            title = data["title"],
+            #The data in release_date includes month and day, we will want to get rid of.
+            year = data["release_date"].split("-")[0],
+            img_url = f"{MOVIE_DB_IMAGE_URL}{data['poster_path']}",
+            description = data["overview"],
+        )
+        
         db.session.add(new_movie)
         db.session.commit()
         return redirect(url_for('home'))
-    
-    # Teacher's solution
-    # form = FindMovieForm()
-    # return render_template("add.html", form=form)
-    return render_template("add.html")
-
 
 if __name__ == '__main__':
     app.run(debug=True)
