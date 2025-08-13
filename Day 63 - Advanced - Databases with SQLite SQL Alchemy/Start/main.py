@@ -46,7 +46,7 @@ class Book(db.Model):
         return f"<Book {self.title} by {self.author} with rating{self.rating}>"
 
 
-# Create the table schema inteh database. Requires application context.
+# Create the table schema in the database. Requires application context.
 with app.app_context():
     db.create_all()
 
