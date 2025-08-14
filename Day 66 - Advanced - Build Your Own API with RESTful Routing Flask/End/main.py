@@ -20,15 +20,18 @@ This will install the packages from requirements.txt for this project.
 app = Flask(__name__)
 
 # CREATE DB
+
+
 class Base(DeclarativeBase):
     pass
-# Connect to Database
+
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cafes.db'
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
 
-# Cafe TABLE Configuration
+# CREATE TABLE
 class Cafe(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(250), unique=True, nullable=False)
@@ -41,21 +44,9 @@ class Cafe(db.Model):
     has_sockets: Mapped[bool] = mapped_column(Boolean, nullable=False)
     can_take_calls: Mapped[bool] = mapped_column(Boolean, nullable=False)
     coffee_price: Mapped[str] = mapped_column(String(250), nullable=True)
-    
-    
-    def to_dict(self):
-        # Method 1
-        dictionary = {}
-        # Loop through each column in the data
-        for column in self.__table__.columns:
-            # Create a new dictionary entry where the key is the name of the column
-            # and the value is the value of the column
-            dictionary[column.name] = getattr(self, column.name)
-        return dictionary
 
-        
-        # Method 2
-        # return {column.name: getattr(self, column.name) for column in self.__table__.columns}
+    def to_dict(self):
+        return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
 
 with app.app_context():
@@ -66,60 +57,15 @@ with app.app_context():
 def home():
     return render_template("index.html")
 
-# HTTP GET - Read Record
 
-# Create a /random route in main.py that allows GET requests to be made to it.
 @app.route("/random")
 def get_random_cafe():
     result = db.session.execute(db.select(Cafe))
     all_cafes = result.scalars().all()
     random_cafe = random.choice(all_cafes)
-    
-    # Normally, we've been returning HTML templates using render_template(), but this time, 
-    # because our server is now acting as an API, we want to return a JSON 
-    # containing the necessary data. Just like real public APIs.
-    # In order to do this, we have to turn our random_cafe SQLAlchemy Object into a JSON. 
-    # This process is called serialization.
-    # print(random_cafe)
-    
-    #  return jsonify(cafe={
-    #     "id": random_cafe.id,
-    #     "name": random_cafe.name,
-    #     "map_url": random_cafe.map_url,
-    #     "img_url": random_cafe.img_url,
-    #     "location": random_cafe.location,
-    #     "seats": random_cafe.seats,
-    #     "has_toilet": random_cafe.has_toilet,
-    #     "has_wifi": random_cafe.has_wifi,
-    #     "has_sockets": random_cafe.has_sockets,
-    #     "can_take_calls": random_cafe.can_take_calls,
-    #     "coffee_price": random_cafe.coffee_price,
-    # })
-          
-    # return jsonify(cafe={
-    #     #Omit the id from the response
-    #     # "id": random_cafe.id,
-    #     "name": random_cafe.name,
-    #     "map_url": random_cafe.map_url,
-    #     "img_url": random_cafe.img_url,
-    #     "location": random_cafe.location,
-        
-    #     #Put some properties in a sub-category
-    #     "amenities": {
-    #       "seats": random_cafe.seats,
-    #       "has_toilet": random_cafe.has_toilet,
-    #       "has_wifi": random_cafe.has_wifi,
-    #       "has_sockets": random_cafe.has_sockets,
-    #       "can_take_calls": random_cafe.can_take_calls,
-    #       "coffee_price": random_cafe.coffee_price,
-    #     }
-    # })
-    
-    # Simply convert the random_cafe data record to a dictionary of key-value pairs.
     return jsonify(cafe=random_cafe.to_dict())
 
 
-# Find all cafes
 @app.route("/all")
 def get_all_cafes():
     result = db.session.execute(db.select(Cafe).order_by(Cafe.name))
@@ -127,20 +73,19 @@ def get_all_cafes():
     return jsonify(cafes=[cafe.to_dict() for cafe in all_cafes])
 
 
-# Search for a specific location
 @app.route("/search")
 def get_cafe_at_location():
     query_location = request.args.get("loc")
-    result = db.session.execute(db.select(Cafe).where(Cafe.location == query_location))
-    # This may return more than one cafe per location
+    result = db.session.execute(
+        db.select(Cafe).where(Cafe.location == query_location))
+    # Note, this may get more than one cafe per location
     all_cafes = result.scalars().all()
     if all_cafes:
         return jsonify(cafes=[cafe.to_dict() for cafe in all_cafes])
     else:
         return jsonify(error={"Not Found": "Sorry, we don't have a cafe at that location."}), 404
 
-
-# HTTP POST - Create Record
+# Test this inside Postman. Request type: Post ->  Body ->  x-www-form-urlencoded
 
 
 @app.route("/add", methods=["POST"])
@@ -161,31 +106,26 @@ def post_new_cafe():
     db.session.commit()
     return jsonify(response={"success": "Successfully added the new cafe."})
 
-
-# HTTP PUT/PATCH - Update Record
-
 # Updating the price of a cafe based on a particular id:
 # http://127.0.0.1:5000/update-price/CAFE_ID?new_price=£5.67
+
+
 @app.route("/update-price/<int:cafe_id>", methods=["PATCH"])
 def patch_new_price(cafe_id):
     new_price = request.args.get("new_price")
-    try:
-        db.get(Cafe, cafe_id)
-    except AttributeError:
-        return jsonify(error={"Not Found": "Sorry a cafe with that id was not found in the database."}), 404
-    else:
+    cafe = db.session.get(entity=Cafe, ident=cafe_id)  # Returns None if cafe_id is not found
+    if cafe:
         cafe.coffee_price = new_price
         db.session.commit()
-        return jsonify(response={"Success" : "Successfully updated the price."}), 200
+        return jsonify(response={"success": "Successfully updated the price."}), 200
+    else:
+        return jsonify(error={"Not Found": "Sorry a cafe with that id was not found in the database."}), 404
 
-
-
-# HTTP DELETE - Delete Record
 
 # Deletes a cafe with a particular id. Change the request type to "Delete" in Postman
 @app.route("/report-closed/<int:cafe_id>", methods=["DELETE"])
 def delete_cafe(cafe_id):
-    api_key = request.args.get("api_key")
+    api_key = request.args.get("api-key")
     if api_key == "TopSecretAPIKey":
         try:
             cafe = db.get(Cafe, cafe_id)
